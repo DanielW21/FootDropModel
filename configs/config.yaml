@@ -1,0 +1,96 @@
+### FOOT MODEL CONFIGURATION
+
+anthropometrics: #meters
+  thigh: 0.6164
+  shank: 0.5588
+  foot: 0.241
+  hip_height: 1.0892
+  foot_weight: 1.0875  # kg
+  foot_width: 0.09     # Used for MOI --> 1/12 m * w^2
+  
+dynamics_params:
+  gravity: 9.81
+  joint_damping: -0.8
+  muscle_damping_beta: 0.1
+  fv_k: 0.25
+  fv_ecc_max: 1.4
+  fp_slope: 5.0
+
+limits:
+  foot: [-45, 30]               # [Plantar, Dorsi] boundaries in degrees
+  k_limit: 2500.0               # Joint limit stiffness
+  d_limit: 1.5                  # Damping ratio multiplier
+
+state_variables:
+  ankle_θ: 0.0
+  ankle_θ_dot: 0.0
+  activation_TA: 0.00
+  activation_SOL: 0.00
+
+
+### Millard2012 Parameters from Gait 2392 Opensim Model [https://opensimconfluence.atlassian.net/wiki/spaces/OpenSim/pages/53086215/Gait+2392+and+2354+Models]
+muscles:
+  TA:
+    f_iso_max: 905.0            
+    l_ce_opt: 0.098             
+    l_slack: 0.223              
+    pennation_angle: 0.0873
+    v_max: 10.0                 
+    moment_arm: 0.04            
+    tau_act: 0.010              # Activation time constant (s)
+    tau_dact: 0.040             # Deactivation time constant (s)
+
+  Soleus:
+    f_iso_max: 3549.0           
+    l_ce_opt: 0.050            
+    l_slack: 0.250             
+    pennation_angle: 0.4363     
+    v_max: 10.0                
+    moment_arm: -0.05          
+    tau_act: 0.010
+    tau_dact: 0.040
+
+muscle_curves:
+  isometric_slope: 5.0          # Force-Velocity slope at isometric point (v=0)
+  eccentric_max_force: 1.4      # Max eccentric force multiplier
+  concentric_slope_near_vmax: 0.25
+
+### Healthy Walking Gait, Key Labelled Frames
+
+# Keyframe Format: [Hip, Knee, Ankle, % Gait Cycle]
+keyframes:
+- [ 0.40, 0.2, 0.00, 0.00] # KF0: 0% - Initial Contact (Heel Strike)
+- [ 0.20, 0.401, -0.436, 0.12] # KF1: 12% - Loading Response (Foot Flat)
+- [ 0.00, 0.54, -0.768, 0.30] # KF2: 30% - Mid-Stance (Body over foot)
+- [-0.25, 0.332, -0.663, 0.50] # KF3: 50% - Terminal Stance (Heel Rise)
+- [-0.30, 0.873, -1.5, 0.60] # KF4: 60% - Pre-Swing (Toe Off)
+- [-0.15, 1.25,  -1.2, 0.65] 
+- [ 0.10, 1.40, -0.50, 0.70] # KF5: 75% - Initial/Mid Swing (Max Knee Flexion)
+- [ 0.50, 1.00,   0.15,  0.76] 
+- [ 0.55, 0.157, 0.314, 0.84] # KF6: 88% - Terminal Swing (Deceleration)
+- [ 0.45, 0.279, 0.087, 1.00] # KF7: 100% - Cycle Reset (Next Heel Strike)
+
+labelled_keyframes:
+  [0, 1, 2, 3, 4, 6, 8 ,9] # Indexes of keyframes to label with clinical event names
+
+optimization:
+  effort_weight: 1.0
+  clearance_weight: 1000.0
+  swing_start: 0.5
+  swing_end: 0.9
+
+node_optimization:
+  num_nodes: 10
+  interpolation: "cubic"
+  initial_guess: 0.44
+  method: "L-BFGS-B"
+
+deeprf:
+  algorithm: "PPO"
+  total_timesteps: 100000
+  learning_rate: 0.0003
+  gamma: 0.99
+  hidden_layers: [64, 64]
+  reward_structure:
+    survival_bonus: 0.1
+    collision_penalty: -500

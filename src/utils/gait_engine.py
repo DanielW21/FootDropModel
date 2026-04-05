@@ -46,23 +46,45 @@ class GaitEngine:
         ankle = knee + np.array([self.params['shank'] * np.sin(h_ang - k_ang), -self.params['shank'] * np.cos(h_ang - k_ang)])
         toe = ankle + np.array([self.params['foot'] * np.cos(a_ang), self.params['foot'] * np.sin(a_ang)])
         return [hip[0], hip[1], knee[0], knee[1], ankle[0], max(0, ankle[1]), toe[0], max(0, toe[1])]
-
+    
     def save_to_csv(self, samples=500):
-        output_dir = os.path.join(self.root, "output", "sim_data")
-        os.makedirs(output_dir, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        data_log = []
-        for f in range(samples):
-            phase = f / samples
-            angles = self.interpolate_pose(phase)
-            c = self.get_leg_coords(angles)
-            data_log.append({
-                'phase': phase, 'hip_q': angles[0], 'knee_q': angles[1], 'ankle_q': angles[2],
-                'toe_x': c[6], 'toe_y': c[7]
-            })
-        
-        df = pd.DataFrame(data_log)
-        path = os.path.join(output_dir, f"gait_ref_{ts}.csv")
-        df.to_csv(path, index=False)
-        return path
+            output_dir = os.path.join(self.root, "output", "sim_data")
+            os.makedirs(output_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            ref_data = []
+            traj_data = []
+            
+            for f in range(samples):
+                phase = f / samples
+                angles = self.interpolate_pose(phase)
+                c = self.get_leg_coords(angles)
+                
+                ref_data.append({
+                    'phase': phase, 
+                    'hip_q': angles[0], 
+                    'knee_q': angles[1], 
+                    'ankle_q': angles[2],
+                    'toe_x': c[6], 
+                    'toe_y': c[7]
+                })
+                
+                traj_data.append({
+                    'phase': phase,
+                    'hip_x': c[0], 'hip_y': c[1],
+                    'knee_x': c[2], 'knee_y': c[3],
+                    'ankle_x': c[4], 'ankle_y': c[5],
+                    'hip_q': angles[0],   
+                    'knee_q': angles[1]
+                })
+            
+            ref_path = os.path.join(output_dir, f"gait_ref_{ts}.csv")
+            pd.DataFrame(ref_data).to_csv(ref_path, index=False)
+            
+            traj_path = os.path.join(output_dir, f"trajectory_baseline_{ts}.csv")
+            pd.DataFrame(traj_data).to_csv(traj_path, index=False)
+            
+            print(f"Saved reference: {ref_path}")
+            print(f"Saved baseline: {traj_path}")
+            
+            return ref_path, traj_path
