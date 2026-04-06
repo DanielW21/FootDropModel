@@ -54,6 +54,10 @@ muscle_curves:
   isometric_slope: 5.0          # Force-Velocity slope at isometric point (v=0)
   eccentric_max_force: 1.4      # Max eccentric force multiplier
   concentric_slope_near_vmax: 0.25
+  width: 0.45
+  gaussian_factor: 0.35
+  passive_shape: 5.0
+  passive_strain: 0.75
 
 ### Healthy Walking Gait, Key Labelled Frames
 
@@ -76,7 +80,7 @@ labelled_keyframes:
 optimization:
   effort_weight: 1.0
   clearance_weight: 1000.0
-  swing_start: 0.5
+  swing_start: 0.50
   swing_end: 0.9
 
 node_optimization:
@@ -88,7 +92,7 @@ node_optimization:
 deeprf:
   algorithm: "PPO"
   total_timesteps: 100000
-  learning_rate: 0.0003
+  learning_rate: 0.0001
   gamma: 0.99
   hidden_layers: [64, 64]
   reward_structure:

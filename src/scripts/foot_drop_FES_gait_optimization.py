@@ -19,7 +19,7 @@ def view_best_result(best_nodes):
     df_base = pd.read_csv(baseline_path)
     phases = df_base['phase'].values
 
-    win_start = config['optimization'].get('swing_start', 0.5)
+    win_start = config['optimization'].get('swing_start', 0.55)
     win_end = config['optimization'].get('swing_end', 0.9)
 
     node_times = np.linspace(win_start, win_end, len(best_nodes))
@@ -39,8 +39,8 @@ def view_best_result(best_nodes):
     df, sol, foot_len = run_integrated_sim(config, u_ta_traj)
 
     print("Launching Animation Window...")
-    animate_gait(df, sol, foot_len, interval=100)
+    animate_gait(df, sol, foot_len, interval=50)
 
 if __name__ == "__main__":
-    default_best_nodes = np.array([0.27, 0.107, 0.399, 0.454, 0.528, 0.39, 0.0, 0.0, 0.0, 0.0])
+    default_best_nodes = np.array([0.303, 0.29, 0.61, 0.606, 0.596, 0.577, 0.3, 0.44, 0.416, 0.432])
     view_best_result(default_best_nodes)

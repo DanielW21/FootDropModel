@@ -2,46 +2,66 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 BETA = 0.1
+BASE_WIDTH = 0.45
+TILT = 0.35 
+ECC_MAX = 1.8
+K1, K2 = 0.25, 1.0 
+PSHAPE = 5.0
+PSTRAIN = 0.75
 
 def plot_muscle_curves():
-    l_norm = np.linspace(0.4, 1.6, 500)
+    l_norm = np.linspace(0.4, 1.8, 500)
     v_norm = np.linspace(-1.0, 1.0, 500)
 
-    f_al = np.exp(-((l_norm - 1)**2) / 0.45) 
+    f_al_tilt = np.exp(-((l_norm - 1)**2) / (BASE_WIDTH + TILT * (l_norm - 1)))
+    f_pe = np.where(l_norm > 1.0, (np.exp(PSHAPE/PSTRAIN * (l_norm - 1.0)) - 1.0) / (np.exp(PSHAPE) - 1.0), 0)
 
-    f_pe = np.array([(np.exp(5.0 * (ln - 1.0)) - 1.0) / (np.exp(5.0) - 1.0) if ln > 1.0 else 0 for ln in l_norm])
+    def calc_fv(K):
+        v_crit = (ECC_MAX - 1) / (1 + 1/K)
+        return np.where(v_norm <= 0, 
+                        (1 + v_norm) / (1 - v_norm / K), 
+                        (ECC_MAX * v_norm + v_crit) / (v_norm + v_crit))
+    
+    f_v1 = calc_fv(K1)
+    f_v2 = calc_fv(K2)
 
-    f_v = []
-    for vn in v_norm:
-        if vn <= 0:
-            f_v.append((1 + vn) / (1 - vn / 0.25))
-        else:
-            f_v.append((1.8 + 0.8 * (1 + vn) / (1 + vn / 0.25)) / 2.6)
-    f_v = np.array(f_v)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    ax1.plot(l_norm, f_al_tilt, 'b-', lw=2.5, label='Active Force, ($f^{L}$)')
+    ax1.plot(l_norm, f_pe, 'r--', lw=2, label='Passive Force ($f^{PE}$)')
+    ax1.plot(l_norm, f_al_tilt + f_pe, 'k-', lw=1.5, label='Total Force Sum')
+    
+    ax1.set_title('A. force-length ($f^L$ & $f^{PE}$)', loc='left', pad=15)
+    ax1.set_xlabel('Normalized Length ($\ell/\ell^M_o$)')
+    ax1.set_ylabel('Normalized Force ($f/f^M_o$)')
+    
+    ax1.set_xticks([0.52, 1.0, 1.39, 1.62, 1.8])
+    ax1.set_yticks([0, 1.0])
+    ax1.set_ylim(-0.05, 1.2) 
+    
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    ax1.legend(frameon=False)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    ax2.plot(v_norm, f_v1, 'g-', lw=2.5, label=f'$f^V$ (K={K1})')
+    ax2.plot(v_norm, f_v1 + BETA * v_norm, 'g--', alpha=0.3)
+    
+    ax2.plot(v_norm, f_v2, 'b-', lw=2.5, label=f'$f^V$ (K={K2})')
+    ax2.plot(v_norm, f_v2 + BETA * v_norm, 'b--', alpha=0.3)
 
-    ax1.plot(l_norm, f_al, 'b-', lw=2, label='Active (f_al)')
-    ax1.plot(l_norm, f_pe, 'r--', lw=2, label='Passive (f_pe)')
-    ax1.plot(l_norm, f_al + f_pe, 'k:', lw=1.5, label='Total (a=1.0, v=0)')
-    ax1.axvline(1.0, color='gray', linestyle='--', alpha=0.5)
-    ax1.set_title('Force-Length Relationship')
-    ax1.set_xlabel('Normalized Length (l/l_opt)')
-    ax1.set_ylabel('Normalized Force')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-
-    ax2.plot(v_norm, f_v, 'g-', lw=2, label='Muscle Multiplier (f_v)')
-    ax2.plot(v_norm, f_v + BETA * v_norm, 'm--', lw=1.5, label='f_v + Beta*v (Improved)')
-    ax2.axhline(1.0, color='gray', linestyle='--', alpha=0.5)
-    ax2.axvline(0.0, color='gray', linestyle='--', alpha=0.5)
-    ax2.set_title('Force-Velocity Relationship')
-    ax2.set_xlabel('Normalized Velocity (v/v_max)')
-    ax2.set_ylabel('Force Multiplier')
-    ax2.annotate('Shortening\n(Concentric)', xy=(-0.5, 0.5), ha='center')
-    ax2.annotate('Lengthening\n(Eccentric)', xy=(0.5, 1.3), ha='center')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+    ax2.set_title('B. force-velocity ($f^V$)', loc='left', pad=15)
+    ax2.set_xlabel('Normalized Velocity ($v/v^M_{max}$)')
+    ax2.set_ylabel('Force Multiplier ($f/f^M_o$)')
+    
+    ax2.axhline(1.0, color='gray', lw=0.8, alpha=0.5)
+    ax2.axvline(0.0, color='gray', lw=0.8, alpha=0.5)
+    ax2.set_xticks([-1, 0, 1])
+    ax2.set_yticks([0, 1.0, ECC_MAX])
+    ax2.set_ylim(-0.05, ECC_MAX + 0.2)
+    
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    ax2.legend(frameon=False)
 
     plt.tight_layout()
     plt.show()

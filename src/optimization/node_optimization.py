@@ -14,7 +14,7 @@ pbar = None
 
 def generate_u_ta_trajectory(amp_nodes, config, phases):
     opt_cfg = config.get('optimization', {})
-    win_start = opt_cfg.get('swing_start', 0.5)
+    win_start = opt_cfg.get('swing_start', 0.55)
     win_end = opt_cfg.get('swing_end', 0.9)
     
     node_times = np.linspace(win_start, win_end, len(amp_nodes))
@@ -50,14 +50,14 @@ def objective(amp_nodes, config, phases):
     shank_angle = df['hip_q'].values - df['knee_q'].values
     ay_pos = df['ankle_y'].values
     
-    win_start, win_end = opt_cfg.get('swing_start', 0.5), opt_cfg.get('swing_end', 0.9)
+    win_start, win_end = opt_cfg.get('swing_start', 0.55), opt_cfg.get('swing_end', 0.9)
     clearance_k = opt_cfg.get('clearance_weight', 100000.0)
 
     for i in range(len(t)):
         if win_start < t[i] < win_end:
             psi = shank_angle[i] + theta[i]
             y_toe = ay_pos[i] + L_FOOT * np.sin(psi)
-            if y_toe < 0:
+            if y_toe < 0.02: # clearnance plus rounding buffer
                 penalty += (0 - y_toe)**2 * clearance_k
     
     total_loss = effort + penalty
@@ -91,10 +91,10 @@ if __name__ == "__main__":
         bounds=bounds,
         tol=1e-3, 
         options={
-            'maxiter': 40, 
-            'ftol': 1e-5,   
-            'gtol': 1e-3,   
-            'eps': 1e-3,
+            'maxiter': 25, 
+            'ftol': 1e-4,   
+            'gtol': 1e-2,   
+            'eps': 1e-2,
             'maxcor': 20   
         }
     )

@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 class MillardMuscle:
     def __init__(self, name, config):
         m_cfg = config['muscles'][name]
-        d_cfg = config.get('dynamics_params', {})
-        c_cfg = config.get('muscle_curves', {}) 
+        d_cfg = config['dynamics_params']
+        c_cfg = config['muscle_curves']
         
         self.f_iso_max = m_cfg['f_iso_max']
         self.l_ce_opt = m_cfg['l_ce_opt']
@@ -19,9 +19,16 @@ class MillardMuscle:
         self.tau_act = m_cfg['tau_act']
         self.tau_dact = m_cfg['tau_dact']
         
-        self.fv_k = d_cfg.get('fv_k', c_cfg.get('concentric_slope_near_vmax', 0.25))
-        self.fv_ecc_max = d_cfg.get('fv_ecc_max', c_cfg.get('eccentric_max_force', 1.4))
-        self.beta = d_cfg.get('muscle_damping_beta', 0.1)
+        self.fv_k = d_cfg['fv_k']
+        self.fv_ecc_max = d_cfg['fv_ecc_max']
+        self.beta = d_cfg['muscle_damping_beta']
+        
+        self.width = c_cfg['width']
+        self.gauss_tilt = c_cfg['gaussian_factor']
+        self.passive_shape = c_cfg['passive_shape']
+        self.passive_strain = c_cfg['passive_strain']
+        
+        self.k_pe = self.passive_shape / self.passive_strain
 
     def get_activation_derivative(self, u, a):
         """Calculates da/dt based on excitation u and current activation a."""
@@ -30,23 +37,24 @@ class MillardMuscle:
 
     def get_force(self, theta, omega, a):
         l_mtu = self.l_slack + self.l_ce_opt - (self.moment_arm * theta)
-        l_norm = (l_mtu - self.l_slack) / self.l_ce_opt
-        v_norm = (-self.moment_arm * omega) / (self.v_max * self.l_ce_opt)
-
-        # Active: Gaussian-like curve
-        f_al = np.exp(-((l_norm - 1)**2) / 0.45) 
         
-        # Passive: Exponential (Slack beyond 1.0)
-        f_pe = (np.exp(5.0 * (l_norm - 1.0)) - 1.0) / (np.exp(5.0) - 1.0) if l_norm > 1.0 else 0 
+        # simplification bsaed on optimal pennation angle and geometric considerations
+        cos_alpha = np.sqrt(max(0.01, 1 - (self.l_ce_opt * np.sin(self.alpha_opt) / max(0.001, l_mtu - self.l_slack))**2))
+        l_norm = ((l_mtu - self.l_slack) / cos_alpha) / self.l_ce_opt
+        v_norm = (-self.moment_arm * omega * cos_alpha) / (self.v_max * self.l_ce_opt)
         
-        # Force-Velocity: Derived from normalized curves and scaled by config parameters
+        # AL,PE for Force-Length Curves
+        f_al = np.exp(-((l_norm - 1.0)**2) / (self.width + self.gauss_tilt * (l_norm - 1.0)))
+        f_pe = (np.exp(self.k_pe * (l_norm - 1.0)) - 1.0) / (np.exp(self.passive_shape) - 1.0) if l_norm > 1.0 else 0 
+        
+        # Force-Velocity
         if v_norm <= 0: # Concentric (Shortening)
             f_v = (1 + v_norm) / (1 - v_norm / self.fv_k)
         else: # Eccentric (Lengthening)
-            f_v = (self.fv_ecc_max + 0.8 * (1 + v_norm) / (1 + v_norm / self.fv_k)) / (1 + 0.8/self.fv_k)
-        
-        # Total Force with Improved Dynamics Damping Model Assuming Rigid Tendon
-        f_tendon = self.f_iso_max * (a * f_al * f_v + f_pe + self.beta * v_norm) * np.cos(self.alpha_opt)
+            v_crit = (self.fv_ecc_max - 1) / (1 + 1/self.fv_k)
+            f_v = (self.fv_ecc_max * v_norm + v_crit) / (v_norm + v_crit)
+            
+        f_tendon = self.f_iso_max * (a * f_al * f_v + f_pe + self.beta * v_norm) * cos_alpha
         return f_tendon
 
     def get_torque(self, theta, omega, a):
