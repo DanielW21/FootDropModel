@@ -54,7 +54,7 @@ def run_integrated_sim(config, u_ta_input=1.0):
     if isinstance(u_ta_input, (float, int, np.float64)):
         u_ta_traj = np.full(len(phases), float(u_ta_input))
         for i, t in enumerate(phases):
-            if not (0.50 < t < 0.90):
+            if not (0.55 < t < 0.90):
                 u_ta_traj[i] = 0.01
     else:
         u_ta_traj = u_ta_input
@@ -106,43 +106,66 @@ def run_integrated_sim(config, u_ta_input=1.0):
     )
     return df, sol, L_FOOT
 
-def animate_gait(df, sol, foot_len, interval = 50):
-    """Refactored plotting logic into a callable function."""
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+def animate_gait(df, sol, foot_len, interval=50):
+    """Refactored plotting logic with a persistent toe-path trail."""
     fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
     ax_top.set_aspect('equal')
-    ax_top.set_xlim(-1.5, 1.5); ax_top.set_ylim(-0.3, 1.5)
+    ax_top.set_xlim(-1.5, 1.5)
+    ax_top.set_ylim(-0.3, 1.5)
     ax_top.axhline(0, color='black', lw=2)
 
+    # 1. Initialize the trail line (dotted blue)
+    trail_line, = ax_top.plot([], [], 'b:', lw=1.5, alpha=0.6, label='Toe Trajectory')
     leg_line, = ax_top.plot([], [], 'o-', lw=6, color='blue', mfc='white')
+    
     act_line, = ax_bot.plot(sol.t, sol.y[2], 'b-', label='TA Activation')
     marker = ax_bot.axvline(0, color='k', ls=':')
     ax_bot.set_ylim(-0.05, 1.1)
 
+    # Storage for the trail coordinates
+    trail_x, trail_y = [], []
+
     def update(frame):
         row = df.iloc[frame]
         theta, t_curr = sol.y[0][frame], sol.t[frame]
+        
+        # Calculate current toe position (tx, ty)
         phi = row['hip_q'] - row['knee_q']
         psi = phi + theta
-        
         ax, ay = row['ankle_x'], row['ankle_y']
         tx = ax + foot_len * np.cos(psi)
         ty = ay + foot_len * np.sin(psi)
         
+        # 2. Append current position to the trail lists
+        trail_x.append(tx)
+        trail_y.append(ty)
+        
+        # 3. Update the trail and leg data
+        trail_line.set_data(trail_x, trail_y)
         leg_line.set_data([row['hip_x'], row['knee_x'], ax, tx], 
                           [row['hip_y'], row['knee_y'], ay, ty])
+        
         marker.set_xdata([t_curr])
         
-        is_swing = 0.50 < t_curr < 0.90
-        leg_line.set_color('red' if ty < -1e-3 and is_swing else 'blue')
+        # Logical check for swing phase and clearance
+        # Note: 'is_swing' window follows the config-defined window 
+        is_swing = 0.55 < t_curr < 0.90
+        leg_line.set_color('red' if ty < -1e-2 and is_swing else 'blue')
         
-        return leg_line, marker
+        return leg_line, marker, trail_line
 
+    # Ensure blit=True for performance; trail_line must be in return list
     ani = FuncAnimation(fig, update, frames=len(df), interval=interval, blit=True)
     plt.tight_layout()
+    plt.legend(loc='upper right')
     plt.show()
-
+    
 if __name__ == "__main__":
     config = load_config()
-    u_strength = 0.444 # Optimized TA activation level from basic ta_optimized.py
+    u_strength = 0.55 # Optimized TA activation level from basic ta_optimized.py
     df, sol, foot_len = run_integrated_sim(config, u_ta_input=u_strength)
     animate_gait(df, sol, foot_len)
