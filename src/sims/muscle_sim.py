@@ -9,30 +9,24 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from muscles.millard_model import MillardMuscle
 
 def load_config():
-    """Loads the central configuration file."""
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     config_path = os.path.join(project_root, "configs", "config.yaml")
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
 def get_latest_baseline():
-    """Retrieves the most recent gait trajectory baseline."""
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     search_path = os.path.join(project_root, "output", "sim_data", "trajectory_baseline_*.csv")
     files = glob.glob(search_path)
     return max(files, key=os.path.getctime) if files else None
 
 def run_integrated_sim(config, u_ta_input=1.0):
-    """
-    u_ta_input can be a single float (constant amplitude) 
-    or a numpy array (time-varying trajectory).
-    """
     anthro = config['anthropometrics']
     L_FOOT = anthro['foot']
     FOOT_MASS = anthro['foot_weight']
     
     I_COM = (1/12) * FOOT_MASS * (L_FOOT**2 + 0.09**2) 
-    I_FOOT = I_COM + FOOT_MASS * (L_FOOT/2.0)**2 
+    I_FOOT = I_COM + FOOT_MASS * (L_FOOT/2.0)**2
 
     ta_muscle = MillardMuscle('TA', config)
     sol_muscle = MillardMuscle('Soleus', config)
@@ -106,19 +100,13 @@ def run_integrated_sim(config, u_ta_input=1.0):
     )
     return df, sol, L_FOOT
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-
 def animate_gait(df, sol, foot_len, interval=50):
-    """Refactored plotting logic with a persistent toe-path trail."""
     fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
     ax_top.set_aspect('equal')
     ax_top.set_xlim(-1.5, 1.5)
     ax_top.set_ylim(-0.3, 1.5)
     ax_top.axhline(0, color='black', lw=2)
 
-    # 1. Initialize the trail line (dotted blue)
     trail_line, = ax_top.plot([], [], 'b:', lw=1.5, alpha=0.6, label='Toe Trajectory')
     leg_line, = ax_top.plot([], [], 'o-', lw=6, color='blue', mfc='white')
     
@@ -126,39 +114,32 @@ def animate_gait(df, sol, foot_len, interval=50):
     marker = ax_bot.axvline(0, color='k', ls=':')
     ax_bot.set_ylim(-0.05, 1.1)
 
-    # Storage for the trail coordinates
     trail_x, trail_y = [], []
 
     def update(frame):
         row = df.iloc[frame]
         theta, t_curr = sol.y[0][frame], sol.t[frame]
         
-        # Calculate current toe position (tx, ty)
         phi = row['hip_q'] - row['knee_q']
         psi = phi + theta
         ax, ay = row['ankle_x'], row['ankle_y']
         tx = ax + foot_len * np.cos(psi)
         ty = ay + foot_len * np.sin(psi)
         
-        # 2. Append current position to the trail lists
         trail_x.append(tx)
         trail_y.append(ty)
         
-        # 3. Update the trail and leg data
         trail_line.set_data(trail_x, trail_y)
         leg_line.set_data([row['hip_x'], row['knee_x'], ax, tx], 
                           [row['hip_y'], row['knee_y'], ay, ty])
         
         marker.set_xdata([t_curr])
         
-        # Logical check for swing phase and clearance
-        # Note: 'is_swing' window follows the config-defined window 
         is_swing = 0.55 < t_curr < 0.90
         leg_line.set_color('red' if ty < -1e-2 and is_swing else 'blue')
         
         return leg_line, marker, trail_line
 
-    # Ensure blit=True for performance; trail_line must be in return list
     ani = FuncAnimation(fig, update, frames=len(df), interval=interval, blit=True)
     plt.tight_layout()
     plt.legend(loc='upper right')
@@ -166,6 +147,6 @@ def animate_gait(df, sol, foot_len, interval=50):
     
 if __name__ == "__main__":
     config = load_config()
-    u_strength = 0.55 # Optimized TA activation level from basic ta_optimized.py
+    u_strength = 0.55
     df, sol, foot_len = run_integrated_sim(config, u_ta_input=u_strength)
     animate_gait(df, sol, foot_len)
