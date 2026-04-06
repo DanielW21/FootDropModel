@@ -83,10 +83,6 @@ def run_metrics_comparison(best_nodes):
     plt.show()
 
 if __name__ == "__main__":
-    best_nodes = np.array([0.27, 0.107, 0.399, 0.454, 0.528, 0.39, 0.0, 0.0, 0.0, 0.0])
+    best_nodes = np.array([0.303, 0.29, 0.61, 0.606, 0.596, 0.577, 0.3, 0.44, 0.416, 0.432])
     run_metrics_comparison(best_nodes)
     
-    # Results of node opt:
-    # Optimizing Trajectory: 869sim [21:50,  1.51s/sim, Loss=6.9589]  
-    # Final Loss: 4.4589
-    # Optimal Nodes: [0.429 0.428 0.429 0.429 0.43  0.429 0.432 0.438 0.438 0.439]
